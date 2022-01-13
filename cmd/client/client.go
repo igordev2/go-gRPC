@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"github.com/codeedu/fc2-grpc/pb"
 	"google.golang.org/grpc"
@@ -21,7 +22,10 @@ func main() {
 
 	client := pb.NewUserServiceClient(connection)
 
-	AddUserVerbose(client)
+	// AddUser(client)
+	// AddUserVerbose(client)
+	// AddUsers(client)
+	AddUserStreamBoth(client)
 }
 
 func AddUser(client pb.UserServiceClient) {
@@ -64,4 +68,118 @@ func AddUserVerbose(client pb.UserServiceClient) {
 		}
 		fmt.Println("Status:", stream.Status, " - ", stream.GetUser())
 	}
+}
+
+func AddUsers(client pb.UserServiceClient) {
+	reqs := []*pb.User{
+		&pb.User{
+			Id:    "w1",
+			Name:  "Igor 1",
+			Email: "igor1@igor.com",
+		},
+		&pb.User{
+			Id:    "w2",
+			Name:  "Igor 2",
+			Email: "igor2@igor.com",
+		},
+		&pb.User{
+			Id:    "w3",
+			Name:  "Igor 3",
+			Email: "igor3@igor.com",
+		},
+		&pb.User{
+			Id:    "w4",
+			Name:  "Igor 4",
+			Email: "igor4@igor.com",
+		},
+		&pb.User{
+			Id:    "w5",
+			Name:  "Igor 5",
+			Email: "igor5@igor.com",
+		},
+	}
+
+	stream, err := client.AddUsers(context.Background())
+
+	if err != nil {
+		log.Fatal("Error creating request %v", err)
+	}
+
+	for _, req := range reqs {
+		stream.Send(req)
+		time.Sleep(time.Second * 3)
+	}
+
+	res, err := stream.CloseAndRecv()
+
+	if err != nil {
+		log.Fatal("Error receiving response %v", err)
+	}
+
+	fmt.Println(res)
+}
+
+func AddUserStreamBoth(client pb.UserServiceClient) {
+	stream, err := client.AddUserStreamBoth(context.Background())
+	if err != nil {
+		log.Fatal("Error creating request %v", err)
+	}
+
+	reqs := []*pb.User{
+		&pb.User{
+			Id:    "w1",
+			Name:  "Igor 1",
+			Email: "igor1@igor.com",
+		},
+		&pb.User{
+			Id:    "w2",
+			Name:  "Igor 2",
+			Email: "igor2@igor.com",
+		},
+		&pb.User{
+			Id:    "w3",
+			Name:  "Igor 3",
+			Email: "igor3@igor.com",
+		},
+		&pb.User{
+			Id:    "w4",
+			Name:  "Igor 4",
+			Email: "igor4@igor.com",
+		},
+		&pb.User{
+			Id:    "w5",
+			Name:  "Igor 5",
+			Email: "igor5@igor.com",
+		},
+	}
+
+	go func() {
+		for _, req := range reqs {
+			fmt.Printf("Sending user: %v\n", req.Name)
+			stream.Send(req)
+			time.Sleep(time.Second * 2)
+		}
+
+		stream.CloseSend()
+	}()
+
+	wait := make(chan int)
+
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatal("Error receiving data: %v", err)
+				break
+			}
+
+			fmt.Printf("Recebendo user %v com status: %v\n", res.GetUser().GetName(), res.GetStatus())
+		}
+		close(wait)
+	}()
+
+	<-wait
 }
