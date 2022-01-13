@@ -14,7 +14,7 @@ func main() {
 		log.Fatalf("Could not connect: %v", err)
 	}
 
-	grpcServer = grpc.NewServer()
+	grpcServer := grpc.NewServer()
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Could not serve: %v", err)
